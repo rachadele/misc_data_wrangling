@@ -1,0 +1,84 @@
+---
+title: ""
+output:
+  github_document:
+    toc: true
+    toc_depth: 4
+date: ""
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+projPath="/space/grp/rschwartz/rschwartz/single_cell_stuff"
+#setwd(projPath)
+source("/space/grp/rschwartz/rschwartz/single_cell_stuff/src/seurat_functions.r")
+source("/space/grp/rschwartz/rschwartz/goldowitz/single_cell/scripts/sc_functions.R") 
+library(reticulate)
+use_condaenv("~/anaconda3/envs/r4.3/")
+load_required_packages()
+library(knitr)
+library(gplots)
+set.seed(123)
+```
+
+```{r}
+ramos <- load_seurat(topdir="/space/scratch/ericchu/r_cache/041_CH4_FINAL/data/ramos/GSE217511_RAW",mode="files")
+```
+
+```{r}
+topdir <- "/space/scratch/ericchu/r_cache/041_CH4_FINAL/data"
+authors <- list.dirs(topdir, recursive=FALSE)
+authors <- gsub('/space/scratch/ericchu/r_cache/041_CH4_FINAL/data/','',authors)
+
+authors <- authors[authors != "misc"]
+
+for (author in authors) {
+print(paste0(author))
+print(dir(paste0(topdir,"/",author), recursive=FALSE))
+}
+
+
+```
+```{r}
+ramos_meta_files <- list.files(paste(topdir,"ramos",sep="/"),pattern="metadata.csv.gz",full.names=TRUE)
+meta <- lapply(ramos_meta_files, function(x){
+    y <- read.table(x, sep=",", header=TRUE)
+   # GSM=
+    y %>% select(X, sample, celltypes)
+    #y <- y[-1, ]
+    #colnames(y)
+})
+
+ramos_meta <- do.call(rbind, meta) %>% as.data.frame()
+
+dups <- ramos_meta[duplicated(ramos_meta$X) | duplicated(ramos_meta$X, fromLast = TRUE), ]
+View(dups)
+```
+
+```{r}
+test <- readRDS(file.path(projPath,"rds/ramos_raw.rds"))
+
+cleanmeta <- read.table(file="/space/scratch/ericchu/r_cache/041_CH4_FINAL/data/ramos/clean_metadata.csv",sep=",",header=TRUE)
+
+idx <- lapply(strsplit(test@meta.data$sample,"_"), function(x) {return(x[2])})
+
+cellids <- paste0(test@meta.data$orig.ident, "_", idx)
+
+test@meta.data$cellids <- cellids
+test@meta.data$sample <- NULL
+
+
+cleanmeta[!cleanmeta$cellids %in% test@meta.data$cellids, ]
+length(unique(cleanmeta$cellids))
+
+duplicatecells <- cleanmeta[duplicated(cleanmeta$cellid) | duplicated(cleanmeta$cellid, fromLast = TRUE), ]
+View(duplicatecells)
+# Identify duplicate rows based on 'cellid'
+duplicaterows <- cleanmeta[duplicated(cleanmeta) | duplicated(cleanmeta, fromLast = TRUE), ]
+# View the duplicate rows
+View(duplicaterows)
+
+newmeta <- left_join(test@meta.data, cleanmeta, by="cellids",multiple="any")
+saveRDS(test,"./rschwartz/single_cell_stuff/rds/ramos_raw.rds")
+```

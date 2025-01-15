@@ -1,1 +1,5 @@
-hdf5_to_h5ad.py
+*h5ad
+*rds
+reports/
+ericREADME.txt
+stats.tsv
